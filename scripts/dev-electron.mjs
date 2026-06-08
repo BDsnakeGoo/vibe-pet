@@ -185,10 +185,33 @@ async function shutdown(code) {
   shuttingDown = true;
   clearTimeout(restartTimer);
   await stopElectron();
-  if (viteProcess && viteProcess.exitCode === null) {
-    viteProcess.kill("SIGTERM");
-  }
+  await stopVite();
   process.exit(code);
+}
+
+function stopVite() {
+  if (!viteProcess || viteProcess.exitCode !== null) {
+    return Promise.resolve();
+  }
+
+  const processId = viteProcess.pid;
+  return new Promise((resolve) => {
+    viteProcess.once("exit", () => resolve());
+    if (process.platform === "win32" && processId) {
+      spawnCommand("taskkill", ["/pid", String(processId), "/t", "/f"], {
+        stdio: "ignore"
+      }).on("exit", () => resolve());
+      return;
+    }
+
+    viteProcess.kill("SIGTERM");
+    setTimeout(() => {
+      if (viteProcess?.exitCode === null) {
+        viteProcess.kill("SIGKILL");
+      }
+      resolve();
+    }, 2000);
+  });
 }
 
 function spawnCommand(command, args, options = {}) {
