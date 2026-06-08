@@ -203,7 +203,10 @@ function getSnapshot(): AppSnapshot {
 }
 
 function ensureVisibleStartupWindow(): void {
-  openSettingsWindow();
+  const status = hookInstaller.getStatus();
+  if (!status.codexInstalled || !status.claudeInstalled) {
+    openSettingsWindow();
+  }
 }
 
 function ensureTray(): void {
