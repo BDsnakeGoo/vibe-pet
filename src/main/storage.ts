@@ -9,7 +9,8 @@ import type { AppSettings, AppSnapshot, GifGroup, GifMap, HistoryItem, HookEvent
 export const APP_NAME = "VibePet";
 export const INGEST_PORT = 44557;
 export const MAX_HISTORY = 200;
-const IDLE_AFTER_MS = 10000;
+const COMPLETED_IDLE_AFTER_MS = 10000;
+const WORKING_STALE_AFTER_MS = 5 * 60 * 1000;
 const BUILTIN_GIF_GROUP_ID = "builtin";
 const DEFAULT_FILE_GIF_GROUP_ID = "default";
 const STARTUP_PET_PROVIDER: Provider = "codex";
@@ -179,6 +180,18 @@ export class AppStore {
     return true;
   }
 
+  markPetIdle(petId: string, receivedAt = new Date().toISOString()): boolean {
+    const pet = this.state.pets.find((candidate) => candidate.id === petId);
+    if (!pet || pet.state === "idle") {
+      return false;
+    }
+
+    pet.state = "idle";
+    pet.lastSeenAt = receivedAt;
+    this.save();
+    return true;
+  }
+
   updateSettings(changes: Partial<AppSettings>): AppSettings {
     const settings = normalizeSettings({
       ...this.state.settings,
@@ -252,11 +265,11 @@ export class AppStore {
   markIdlePets(now = Date.now()): boolean {
     let changed = false;
     for (const pet of this.state.pets) {
-      if (pet.state !== "completed") {
-        continue;
-      }
-
-      if (now - Date.parse(pet.lastSeenAt) >= IDLE_AFTER_MS) {
+      const elapsed = now - Date.parse(pet.lastSeenAt);
+      const shouldMarkIdle =
+        (pet.state === "completed" && elapsed >= COMPLETED_IDLE_AFTER_MS) ||
+        (pet.state === "working" && elapsed >= WORKING_STALE_AFTER_MS);
+      if (shouldMarkIdle) {
         pet.state = "idle";
         changed = true;
       }

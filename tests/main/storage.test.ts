@@ -414,7 +414,7 @@ describe("AppStore", () => {
     expect(store.getPets().find((pet) => pet.id === "codex:session-1")?.state).toBe("waiting");
   });
 
-  it("keeps working pets working during idle marking", () => {
+  it("keeps working pets working before the stale timeout", () => {
     const store = new AppStore();
 
     store.normalizeAndStoreEvent({
@@ -427,9 +427,44 @@ describe("AppStore", () => {
       receivedAt: "2026-06-08T00:00:00.000Z"
     });
 
-    store.markIdlePets(Date.parse("2026-06-08T00:10:00.000Z"));
+    store.markIdlePets(Date.parse("2026-06-08T00:04:59.999Z"));
 
     expect(store.getPets().find((pet) => pet.id === "codex:session-1")?.state).toBe("working");
+  });
+
+  it("marks stale working pets idle after the stale timeout", () => {
+    const store = new AppStore();
+
+    store.normalizeAndStoreEvent({
+      provider: "codex",
+      eventName: "UserPromptSubmit",
+      payload: {
+        session_id: "session-1",
+        prompt: "fix the build"
+      },
+      receivedAt: "2026-06-08T00:00:00.000Z"
+    });
+
+    store.markIdlePets(Date.parse("2026-06-08T00:05:00.000Z"));
+
+    expect(store.getPets().find((pet) => pet.id === "codex:session-1")?.state).toBe("idle");
+  });
+
+  it("can manually mark a pet idle", () => {
+    const store = new AppStore();
+
+    store.normalizeAndStoreEvent({
+      provider: "codex",
+      eventName: "UserPromptSubmit",
+      payload: {
+        session_id: "session-1",
+        prompt: "fix the build"
+      },
+      receivedAt: "2026-06-08T00:00:00.000Z"
+    });
+
+    expect(store.markPetIdle("codex:session-1", "2026-06-08T00:01:00.000Z")).toBe(true);
+    expect(store.getPets().find((pet) => pet.id === "codex:session-1")?.state).toBe("idle");
   });
 
   it("resets transient startup states to idle without clearing waiting pets", () => {

@@ -131,6 +131,15 @@ ipcMain.on("pet:menu", (_event, petId: string) => {
       click: () => openSettingsWindow()
     },
     {
+      label: "设为空闲",
+      enabled: !!pet && pet.state !== "idle",
+      click: () => {
+        if (pet && store.markPetIdle(pet.id)) {
+          broadcastSnapshot();
+        }
+      }
+    },
+    {
       label: "隐藏",
       click: () => hidePetWindow(petId)
     },
