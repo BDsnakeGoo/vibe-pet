@@ -1,0 +1,339 @@
+:root {
+  color: #1f1f1f;
+  background: transparent;
+  font-family: "Segoe UI", "Microsoft YaHei UI", sans-serif;
+}
+
+html,
+body,
+#root {
+  background: transparent;
+  width: 100%;
+  height: 100%;
+}
+
+html[data-view="pet"],
+html[data-view="pet"] body,
+html[data-view="pet"] #root {
+  min-width: 100%;
+  min-height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  overflow: hidden;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+.screen {
+  min-height: 100vh;
+}
+
+.screen-loading {
+  display: grid;
+  place-items: center;
+  color: #54453d;
+}
+
+.screen-pet {
+  width: 100vw;
+  height: 100vh;
+  min-height: 0;
+  max-width: 100vw;
+  max-height: 100vh;
+  overflow: hidden;
+  cursor: move;
+  user-select: none;
+  --pet-gap: 2px;
+  --pet-pad-y: 4px;
+}
+
+.pet-shell {
+  width: 100vw;
+  height: 100vh;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--pet-gap);
+  padding: var(--pet-pad-y) 8px;
+  overflow: visible;
+}
+
+.pet-name {
+  max-width: calc(100vw - 16px);
+  padding: 0.22em 0.72em;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(53, 39, 28, 0.12);
+  color: #5a4032;
+  font-size: var(--pet-font-size, 13px);
+  line-height: 1.2;
+  font-weight: 700;
+  box-shadow: 0 12px 24px rgba(120, 86, 59, 0.12);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pet-stage {
+  flex: 0 0 auto;
+  max-width: calc(100vw - 16px);
+  max-height: calc(100vh - 8px);
+  display: grid;
+  place-items: center;
+  min-height: 0;
+}
+
+.pet-gif {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.fallback-pet {
+  width: 100%;
+  height: 100%;
+  border-radius: 36px;
+  position: relative;
+  display: grid;
+  place-items: center;
+  box-shadow:
+    inset 0 -16px 24px rgba(0, 0, 0, 0.08),
+    0 22px 30px rgba(89, 61, 38, 0.16);
+  animation: petBounce 1.8s ease-in-out infinite;
+}
+
+.fallback-idle {
+  background: linear-gradient(180deg, #f8d987 0%, #f2a65b 100%);
+}
+
+.fallback-working {
+  background: linear-gradient(180deg, #86d4c8 0%, #2aa7a1 100%);
+}
+
+.fallback-waiting {
+  background: linear-gradient(180deg, #ffc17a 0%, #ff6f4b 100%);
+}
+
+.fallback-completed {
+  background: linear-gradient(180deg, #9bd982 0%, #3fa35b 100%);
+}
+
+.fallback-face {
+  display: flex;
+  gap: 24px;
+}
+
+.fallback-face span {
+  width: 14px;
+  height: 22px;
+  border-radius: 999px;
+  background: #2d241c;
+  animation: blink 4s infinite;
+}
+
+.pet-caption {
+  color: #6a4a39;
+  font-size: var(--pet-font-size, 13px);
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.5;
+  min-height: 1.5em;
+  padding-bottom: 0.2em;
+  flex: 0 0 auto;
+  max-width: calc(100vw - 16px);
+  text-align: center;
+  white-space: nowrap;
+  overflow: visible;
+}
+
+.screen-panel {
+  padding: 24px;
+  color: #2c2721;
+}
+
+.panel-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.panel-header h1 {
+  margin: 0 0 6px;
+  font-size: 28px;
+}
+
+.panel-header p {
+  margin: 0;
+  color: #665448;
+}
+
+.pet-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.pet-tab,
+.ghost-button,
+.action-button {
+  border: 0;
+  border-radius: 10px;
+  padding: 10px 14px;
+  cursor: pointer;
+  -webkit-app-region: no-drag;
+}
+
+.pet-tab {
+  background: rgba(255, 255, 255, 0.62);
+}
+
+.pet-tab.active {
+  background: #2b9088;
+  color: white;
+}
+
+.history-list,
+.settings-list {
+  display: grid;
+  gap: 12px;
+}
+
+.history-item,
+.pet-card,
+.status-card {
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(70, 54, 43, 0.08);
+  border-radius: 8px;
+  box-shadow: 0 14px 28px rgba(71, 53, 44, 0.08);
+}
+
+.history-item {
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+}
+
+.history-kind {
+  font-size: 12px;
+  font-weight: 800;
+  color: #0d756c;
+}
+
+.history-summary {
+  font-size: 15px;
+}
+
+.history-time {
+  color: #7a685d;
+  font-size: 12px;
+}
+
+.status-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.settings-section {
+  margin-bottom: 18px;
+}
+
+.settings-section h2 {
+  margin: 0 0 12px;
+  font-size: 18px;
+}
+
+.window-settings-grid {
+  display: grid;
+  grid-template-columns: minmax(160px, 240px);
+  gap: 12px;
+}
+
+.status-card {
+  padding: 14px;
+  display: grid;
+  gap: 6px;
+}
+
+.action-button {
+  background: #1b7f78;
+  color: white;
+}
+
+.ghost-button {
+  background: rgba(255, 255, 255, 0.74);
+  color: #453427;
+  border: 1px solid rgba(70, 54, 43, 0.08);
+}
+
+.pet-card {
+  padding: 16px;
+  display: grid;
+  gap: 14px;
+}
+
+.field {
+  display: grid;
+  gap: 8px;
+}
+
+.field input,
+.field select {
+  border-radius: 8px;
+  border: 1px solid rgba(60, 47, 37, 0.16);
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.86);
+}
+
+.gif-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.gif-path {
+  color: #766356;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+@keyframes petBounce {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-1deg);
+  }
+  50% {
+    transform: translateY(-8px) rotate(1deg);
+  }
+}
+
+@keyframes blink {
+  0%,
+  46%,
+  52%,
+  100% {
+    transform: scaleY(1);
+  }
+  49% {
+    transform: scaleY(0.1);
+  }
+}

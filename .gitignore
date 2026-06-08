@@ -1,0 +1,63 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+dist-electron/
+dist-renderer/
+build/
+out/
+release/
+*.tsbuildinfo
+
+# Test / coverage / cache
+coverage/
+.coverage/
+.vitest/
+.vite/
+.cache/
+
+# Runtime data, logs and local backups
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+data.json
+spool/
+backups/
+*.bak
+*.backup
+
+# Private environment and machine-local config
+.env
+.env.*
+!.env.example
+*.local
+.npmrc.local
+
+# User hook/config directories. VibePet writes real hooks under the user profile,
+# but ignore these too in case they are copied into the project by mistake.
+.codex/
+.claude/
+
+# Private certificates / keys
+*.key
+*.pem
+*.p12
+*.pfx
+*.crt
+*.cer
+
+# Local/private GIF packs
+assets/gif-packs/local*/
+assets/gif-packs/private*/
+
+# Editors / OS
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.example.json
+.DS_Store
+Thumbs.db
