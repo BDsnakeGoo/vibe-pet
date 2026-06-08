@@ -47,9 +47,11 @@ VibePet 会写入用户级配置，不会把这些配置放进仓库：
 %LOCALAPPDATA%\VibePet\backups
 ```
 
-### 自定义 GIF
+### 自定义 GIF 和宠物类型
 
-每个 GIF 组是 `assets/gif-packs/<group-id>/` 下的一个文件夹，至少需要包含：
+想维护自己的宠物类型时，只需要在 `assets/gif-packs/` 下新建一个文件夹，并按固定命名规则往里面放 GIF 文件即可。文件夹名就是设置页下拉框里的 GIF 组 ID，建议使用英文、数字和连字符，例如 `pixel-cat`、`office-dog`。
+
+每个宠物类型至少需要包含：
 
 ```text
 assets/gif-packs/your-pack-name/
@@ -58,7 +60,14 @@ assets/gif-packs/your-pack-name/
   waiting.gif
 ```
 
-`completed.gif` 可选；缺少时会复用 `idle.gif`。本地私有素材建议放到 `assets/gif-packs/local*/` 或 `assets/gif-packs/private*/`，这些路径已被 `.gitignore` 排除。
+命名规则：
+
+- `idle.gif`：空闲状态动画。
+- `working.gif`：工作中状态动画。
+- `waiting.gif`：等待用户输入状态动画。
+- `completed.gif`：完成状态动画，可选；缺少时会复用 `idle.gif`。
+
+缺少 `idle.gif`、`working.gif`、`waiting.gif` 任意一个时，该宠物类型不会被加载。本地私有素材建议放到 `assets/gif-packs/local*/` 或 `assets/gif-packs/private*/`，这些路径已被 `.gitignore` 排除。
 
 ## 实现原理
 
