@@ -93,8 +93,8 @@ function PetView({ pet, settings }: { pet: PetProfile | null; settings: AppSetti
     const nameRect = nameRef.current.getBoundingClientRect();
     const captionRect = captionRef.current.getBoundingClientRect();
     const promptRect = promptPanelRef.current?.getBoundingClientRect();
-    const promptWidth = promptRect?.width ?? 0;
-    const promptHeight = promptRect ? promptRect.height + 4 : 0;
+    const promptWidth = promptPanelRef.current ? Math.max(promptRect?.width ?? 0, promptPanelRef.current.scrollWidth) : 0;
+    const promptHeight = promptPanelRef.current ? Math.max(promptRect?.height ?? 0, promptPanelRef.current.scrollHeight) + 4 : 0;
     const layout = calculatePetWindowLayout({
       nameWidth: Math.max(nameRect.width, nameRef.current.scrollWidth, promptWidth),
       nameHeight: Math.max(nameRect.height, nameRef.current.scrollHeight),

@@ -192,7 +192,7 @@ select {
 
 .pet-prompt-reply {
   width: 100%;
-  max-height: min(520px, calc(100vh - 132px));
+  max-height: 520px;
   overflow-y: auto;
   overflow-x: hidden;
   border: 1px solid rgba(53, 39, 28, 0.12);
