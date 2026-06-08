@@ -413,4 +413,59 @@ describe("AppStore", () => {
 
     expect(store.getPets().find((pet) => pet.id === "codex:session-1")?.state).toBe("waiting");
   });
+
+  it("keeps working pets working during idle marking", () => {
+    const store = new AppStore();
+
+    store.normalizeAndStoreEvent({
+      provider: "codex",
+      eventName: "UserPromptSubmit",
+      payload: {
+        session_id: "session-1",
+        prompt: "fix the build"
+      },
+      receivedAt: "2026-06-08T00:00:00.000Z"
+    });
+
+    store.markIdlePets(Date.parse("2026-06-08T00:10:00.000Z"));
+
+    expect(store.getPets().find((pet) => pet.id === "codex:session-1")?.state).toBe("working");
+  });
+
+  it("resets transient startup states to idle without clearing waiting pets", () => {
+    const store = new AppStore();
+
+    store.normalizeAndStoreEvent({
+      provider: "codex",
+      eventName: "UserPromptSubmit",
+      payload: {
+        session_id: "working-session",
+        prompt: "fix the build"
+      },
+      receivedAt: "2026-06-08T00:00:00.000Z"
+    });
+    store.normalizeAndStoreEvent({
+      provider: "codex",
+      eventName: "Stop",
+      payload: {
+        session_id: "completed-session"
+      },
+      receivedAt: "2026-06-08T00:00:01.000Z"
+    });
+    store.normalizeAndStoreEvent({
+      provider: "codex",
+      eventName: "UserApprovalRequest",
+      payload: {
+        session_id: "waiting-session",
+        reason: "command requires approval"
+      },
+      receivedAt: "2026-06-08T00:00:02.000Z"
+    });
+
+    store.resetTransientPetsToIdle("2026-06-08T00:01:00.000Z");
+
+    expect(store.getPets().find((pet) => pet.id === "codex:working-session")?.state).toBe("idle");
+    expect(store.getPets().find((pet) => pet.id === "codex:completed-session")?.state).toBe("idle");
+    expect(store.getPets().find((pet) => pet.id === "codex:waiting-session")?.state).toBe("waiting");
+  });
 });

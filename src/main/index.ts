@@ -64,6 +64,7 @@ if (!hasSingleInstanceLock || shouldQuitFromTaskbar) {
     syncPetWindows();
     broadcastSnapshot();
     store.flushSpool();
+    store.resetTransientPetsToIdle();
     syncPetWindows();
     broadcastSnapshot();
     ensureVisibleStartupWindow();

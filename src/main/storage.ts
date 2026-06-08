@@ -248,14 +248,33 @@ export class AppStore {
   markIdlePets(now = Date.now()): boolean {
     let changed = false;
     for (const pet of this.state.pets) {
-      if (pet.state === "waiting") {
+      if (pet.state !== "completed") {
         continue;
       }
 
-      if (now - Date.parse(pet.lastSeenAt) >= IDLE_AFTER_MS && pet.state !== "idle") {
+      if (now - Date.parse(pet.lastSeenAt) >= IDLE_AFTER_MS) {
         pet.state = "idle";
         changed = true;
       }
+    }
+
+    if (changed) {
+      this.save();
+    }
+
+    return changed;
+  }
+
+  resetTransientPetsToIdle(receivedAt = new Date().toISOString()): boolean {
+    let changed = false;
+    for (const pet of this.state.pets) {
+      if (pet.state !== "working" && pet.state !== "completed") {
+        continue;
+      }
+
+      pet.state = "idle";
+      pet.lastSeenAt = receivedAt;
+      changed = true;
     }
 
     if (changed) {
