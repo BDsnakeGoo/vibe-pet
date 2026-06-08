@@ -7,8 +7,9 @@ VibePet 是一个面向 Windows 的 Electron 桌面宠物。它监听 Codex / Cl
 - 一个 `provider + session_id` 对应一只宠物，当前支持 Codex 和 Claude。
 - 支持 `idle`、`working`、`waiting`、`completed` 四种状态动画。
 - 左键拖动宠物，右键打开菜单，可查看历史、打开设置、安装/卸载 hooks、隐藏或关闭宠物。
-- Windows 托盘常驻，窗口最小化后可从托盘恢复，也可以从托盘完全退出。
-- 主程序未运行时，hook 事件会先写入本地 spool，下一次启动后再补处理。
+- Windows 托盘常驻，宠物窗口和设置窗口默认不显示在任务栏，可从托盘打开设置、显示宠物或完全退出。
+- 启动时会先显示一只空闲宠物；第一次收到真实 hook 后，这只启动宠物会接管为对应会话宠物，避免重复创建。
+- 主程序未运行时，hook 事件会先写入本地 spool，下一次启动后再补处理；启动期间补处理出的 `working` / `completed` 瞬态状态会归一为 `idle`。
 - 支持自定义 GIF 组，默认素材位于 `assets/gif-packs/default`。
 
 ## 安装方法
@@ -19,7 +20,23 @@ VibePet 是一个面向 Windows 的 Electron 桌面宠物。它监听 Codex / Cl
 - Node.js 20 或更新版本
 - 已安装 Codex 或 Claude，并且对应工具支持 hooks
 
-### 本地运行
+### 开发运行
+
+开发时推荐使用热重载模式：
+
+```powershell
+npm install
+npm run dev
+```
+
+说明：
+
+- Renderer 使用 Vite HMR，修改 React / CSS 会热更新。
+- Electron 主进程、preload 或 shared 代码变化后，会自动重新编译并重启 Electron。
+- 开发模式下 Electron 会加载 `http://127.0.0.1:5173/`，Vite 会把 `/api`、`/gif-packs`、`/hook-event` 代理到 VibePet 本地服务。
+- 如果 `5173` 或 `44557` 端口被占用，需要先关闭已有开发进程或调整配置。
+
+### 生产运行
 
 ```powershell
 npm install
@@ -30,9 +47,9 @@ npm start
 
 说明：
 
-- 需要先执行 `npm run build`，再执行 `npm start` 启动 Electron。
+- 普通使用或验证生产包时，需要先执行 `npm run build`，再执行 `npm start` 启动 Electron。
 - 项目里的 `.npmrc` 只配置了 Electron 下载镜像：`https://npmmirror.com/mirrors/electron/`。如果你不需要国内镜像，可以自行删除或修改。
-- 启动后会先打开设置窗口，点击「安装 Hooks」即可把 VibePet 的 hook 命令写入当前用户配置。
+- 启动时如果 Codex 或 Claude hooks 未安装，会打开设置窗口，点击「安装 Hooks」即可把 VibePet 的 hook 命令写入当前用户配置；hooks 已安装时不会自动弹出设置窗口。
 
 ### Hooks 写入位置
 
@@ -79,6 +96,14 @@ assets/gif-packs/your-pack-name/
 6. `src/shared/stateMachine.ts` 根据 hook 事件名和 payload 关键词判断宠物状态。
 7. `src/shared/summarizer.ts` 把事件压缩成历史摘要，设置页和历史窗口通过 preload 暴露的 IPC API 读取快照。
 
+状态流转规则：
+
+- `UserPromptSubmit`、`PreToolUse`、`PostToolUse`、工具 payload 等活动会把宠物标记为 `working`。
+- 等待人工确认或 `request_user_input` 会标记为 `waiting`，并且不会被空闲超时打断。
+- `Stop`、`Complete`、`Done`、`Finished` 等事件会标记为 `completed`；`completed` 保持约 10 秒后回到 `idle`。
+- `working` 不会因为长时间没有新 hook 而自动变成 `idle`，避免 Codex 长任务执行期间误判为空闲。
+- 应用启动时不会恢复上一次退出前的 active pets；如果 spool 里有离线事件，补处理后会把 `working` / `completed` 这类瞬态状态归一成 `idle`。
+
 主要数据保存在：
 
 ```text
@@ -89,7 +114,7 @@ assets/gif-packs/your-pack-name/
 
 - 当前无法稳定通过 Codex hook 判断 Codex 已经退出；如果 Codex 没有发出可识别的退出事件，宠物不会自动消失，想关闭宠物需要右键宠物选择「关闭」，或从托盘选择「完全退出」。
 - 状态判断主要依赖事件名和 payload 里的关键词，可能不准确。需要调整时改 `src/shared/stateMachine.ts`，建议同步补充 `src/shared/stateMachine.test.ts`。
-- `Stop`、`Complete`、`Done`、`Finished` 等事件只会把宠物标记为 `completed`，不会自动关闭宠物窗口。
+- `Stop`、`Complete`、`Done`、`Finished` 等事件只会把宠物标记为 `completed`，不会自动关闭宠物窗口；完成状态会在短暂停留后回到空闲。
 - 本地服务固定监听 `127.0.0.1:44557`，如果端口被占用，需要修改 `src/main/storage.ts` 里的 `INGEST_PORT`，以及 `scripts/hook-dispatcher.mjs` 里的 `INGEST_URL`。
 - 本项目优先面向 Windows；macOS / Linux 没有完整验证。
 - 发布到 GitHub 前建议补充适合你的开源许可证，例如 MIT、Apache-2.0 或 GPL 系列。
