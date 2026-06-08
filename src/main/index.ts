@@ -60,6 +60,7 @@ if (!hasSingleInstanceLock || shouldQuitFromTaskbar) {
     configureTaskbarTasks();
     ensureTray();
     await startServer();
+    store.ensureStartupPet();
     syncPetWindows();
     broadcastSnapshot();
     store.flushSpool();
@@ -71,7 +72,7 @@ if (!hasSingleInstanceLock || shouldQuitFromTaskbar) {
       if (store.markIdlePets()) {
         broadcastSnapshot();
       }
-    }, 30000);
+    }, 5000);
   });
 }
 
@@ -375,7 +376,7 @@ function createPetWindow(pet: PetProfile): BrowserWindow {
     frame: false,
     transparent: true,
     resizable: false,
-    skipTaskbar: false,
+    skipTaskbar: true,
     alwaysOnTop: true,
     hasShadow: false,
     webPreferences: {
@@ -496,6 +497,7 @@ function openSettingsWindow(): void {
     height: 720,
     title: "VibePet Settings",
     autoHideMenuBar: true,
+    skipTaskbar: true,
     webPreferences: {
       preload: preloadEntryPath,
       contextIsolation: true,

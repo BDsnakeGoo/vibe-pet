@@ -99,6 +99,37 @@ describe("AppStore", () => {
     expect(pet.gifMap.working).toContain("working.gif");
   });
 
+  it("creates a startup idle pet when no active pets exist", () => {
+    const store = new AppStore(projectRoot);
+
+    const pet = store.ensureStartupPet("2026-06-08T00:00:00.000Z");
+
+    expect(pet?.id).toBe("codex:startup");
+    expect(pet?.name).toBe("VibePet");
+    expect(pet?.state).toBe("idle");
+    expect(store.getPets()).toHaveLength(1);
+  });
+
+  it("promotes the startup pet to the first real hook session", () => {
+    const store = new AppStore(projectRoot);
+    const startupPet = store.ensureStartupPet("2026-06-08T00:00:00.000Z");
+
+    const pet = store.normalizeAndStoreEvent({
+      provider: "codex",
+      eventName: "UserPromptSubmit",
+      payload: {
+        session_id: "session-1",
+        prompt: "fix the build"
+      },
+      receivedAt: "2026-06-08T00:01:00.000Z"
+    });
+
+    expect(pet.id).toBe("codex:session-1");
+    expect(pet.name).toBe("codex-1");
+    expect(pet.position).toEqual(startupPet?.position);
+    expect(store.getPets()).toHaveLength(1);
+  });
+
   it("updates an existing pet gif group and gif map", () => {
     for (const packName of ["pixel-cat", "pixel-dog"]) {
       const packDir = path.join(projectRoot, "assets", "gif-packs", packName);
@@ -335,7 +366,7 @@ describe("AppStore", () => {
     expect(store.getPets().some((pet) => pet.id === "codex:session-1")).toBe(false);
   });
 
-  it("keeps completed pets completed during idle marking", () => {
+  it("marks completed pets idle after the idle timeout", () => {
     const store = new AppStore();
 
     store.normalizeAndStoreEvent({
@@ -356,8 +387,30 @@ describe("AppStore", () => {
       receivedAt: "2026-06-08T00:01:00.000Z"
     });
 
-    store.markIdlePets(Date.parse("2026-06-08T00:10:00.000Z"));
+    store.markIdlePets(Date.parse("2026-06-08T00:01:09.999Z"));
 
     expect(store.getPets().find((pet) => pet.id === "codex:session-1")?.state).toBe("completed");
+
+    store.markIdlePets(Date.parse("2026-06-08T00:01:10.000Z"));
+
+    expect(store.getPets().find((pet) => pet.id === "codex:session-1")?.state).toBe("idle");
+  });
+
+  it("keeps waiting pets waiting during idle marking", () => {
+    const store = new AppStore();
+
+    store.normalizeAndStoreEvent({
+      provider: "codex",
+      eventName: "UserApprovalRequest",
+      payload: {
+        session_id: "session-1",
+        reason: "command requires approval"
+      },
+      receivedAt: "2026-06-08T00:00:00.000Z"
+    });
+
+    store.markIdlePets(Date.parse("2026-06-08T00:10:00.000Z"));
+
+    expect(store.getPets().find((pet) => pet.id === "codex:session-1")?.state).toBe("waiting");
   });
 });

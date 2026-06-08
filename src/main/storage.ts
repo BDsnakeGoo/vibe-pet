@@ -9,9 +9,12 @@ import type { AppSettings, AppSnapshot, GifGroup, GifMap, HistoryItem, HookEvent
 export const APP_NAME = "VibePet";
 export const INGEST_PORT = 44557;
 export const MAX_HISTORY = 200;
-const IDLE_AFTER_MS = 120000;
+const IDLE_AFTER_MS = 10000;
 const BUILTIN_GIF_GROUP_ID = "builtin";
 const DEFAULT_FILE_GIF_GROUP_ID = "default";
+const STARTUP_PET_PROVIDER: Provider = "codex";
+const STARTUP_PET_SESSION_ID = "startup";
+const STARTUP_PET_ID = `${STARTUP_PET_PROVIDER}:${STARTUP_PET_SESSION_ID}`;
 
 interface PersistedState {
   pets: PetProfile[];
@@ -117,6 +120,17 @@ export class AppStore {
     return [...this.state.pets];
   }
 
+  ensureStartupPet(receivedAt = new Date().toISOString()): PetProfile | undefined {
+    if (this.state.pets.length > 0) {
+      return undefined;
+    }
+
+    const pet = this.createPetProfile(STARTUP_PET_ID, STARTUP_PET_PROVIDER, STARTUP_PET_SESSION_ID, receivedAt, "VibePet");
+    this.state.pets.push(pet);
+    this.save();
+    return pet;
+  }
+
   getGifGroups(): GifGroup[] {
     return [getBuiltInGifGroup(), ...this.readGifGroupsFromProject()];
   }
@@ -202,7 +216,7 @@ export class AppStore {
 
     const eventState = classifyEvent(hookEvent);
     const existingPet = this.state.pets.find((candidate) => candidate.id === petId);
-    const pet = existingPet ?? this.getOrCreatePet(petId, envelope.provider, sessionId, receivedAt);
+    const pet = existingPet ?? this.promoteStartupPet(petId, envelope.provider, sessionId) ?? this.getOrCreatePet(petId, envelope.provider, sessionId, receivedAt);
     pet.state = nextPetState(pet.state, hookEvent);
     pet.lastSeenAt = receivedAt;
 
@@ -234,7 +248,7 @@ export class AppStore {
   markIdlePets(now = Date.now()): boolean {
     let changed = false;
     for (const pet of this.state.pets) {
-      if (pet.state === "waiting" || pet.state === "completed") {
+      if (pet.state === "waiting") {
         continue;
       }
 
@@ -261,11 +275,31 @@ export class AppStore {
       return existing;
     }
 
+    const pet = this.createPetProfile(id, provider, sessionId, receivedAt);
+    this.state.pets.push(pet);
+    return pet;
+  }
+
+  private promoteStartupPet(id: string, provider: Provider, sessionId: string): PetProfile | undefined {
+    const pet = this.state.pets.find((candidate) => candidate.id === STARTUP_PET_ID);
+    if (!pet) {
+      return undefined;
+    }
+
+    const name = this.getNextPetName(provider);
+    pet.id = id;
+    pet.provider = provider;
+    pet.sessionId = sessionId;
+    pet.name = name;
+    return pet;
+  }
+
+  private createPetProfile(id: string, provider: Provider, sessionId: string, receivedAt: string, name = this.getNextPetName(provider)): PetProfile {
     const pet: PetProfile = {
       id,
       provider,
       sessionId,
-      name: `${provider}-${this.state.pets.filter((item) => item.provider === provider).length + 1}`,
+      name,
       state: "idle",
       gifGroupId: this.getSelectedGifGroup().id,
       gifMap: {
@@ -278,8 +312,12 @@ export class AppStore {
       createdAt: receivedAt,
       lastSeenAt: receivedAt
     };
-    this.state.pets.push(pet);
     return pet;
+  }
+
+  private getNextPetName(provider: Provider): string {
+    const count = this.state.pets.filter((item) => item.provider === provider && item.id !== STARTUP_PET_ID).length;
+    return `${provider}-${count + 1}`;
   }
 
   private load(): PersistedState {
