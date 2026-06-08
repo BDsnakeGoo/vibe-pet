@@ -468,4 +468,17 @@ describe("AppStore", () => {
     expect(store.getPets().find((pet) => pet.id === "codex:completed-session")?.state).toBe("idle");
     expect(store.getPets().find((pet) => pet.id === "codex:waiting-session")?.state).toBe("waiting");
   });
+
+  it("moves invalid spool files to a bad directory", () => {
+    const store = new AppStore();
+    const spoolDir = path.join(tempRoot, "VibePet", "spool");
+    const invalidFile = path.join(spoolDir, "invalid.json");
+    fs.writeFileSync(invalidFile, "{not-json", "utf8");
+
+    store.flushSpool();
+
+    expect(fs.existsSync(invalidFile)).toBe(false);
+    const badDir = path.join(spoolDir, "bad");
+    expect(fs.readdirSync(badDir).some((fileName) => fileName.endsWith("invalid.json.bad"))).toBe(true);
+  });
 });

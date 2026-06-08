@@ -230,16 +230,20 @@ export class AppStore {
   }
 
   flushSpool(): PetProfile[] {
-    const entries = fs.existsSync(this.spoolDir) ? fs.readdirSync(this.spoolDir) : [];
+    const entries = fs.existsSync(this.spoolDir) ? fs.readdirSync(this.spoolDir, { withFileTypes: true }) : [];
     const updatedPets: PetProfile[] = [];
     for (const entry of entries) {
-      const filePath = path.join(this.spoolDir, entry);
+      if (!entry.isFile()) {
+        continue;
+      }
+
+      const filePath = path.join(this.spoolDir, entry.name);
       try {
         const payload = JSON.parse(fs.readFileSync(filePath, "utf8")) as IncomingHookEnvelope;
         updatedPets.push(this.normalizeAndStoreEvent(payload));
         fs.unlinkSync(filePath);
       } catch {
-        continue;
+        moveBadSpoolFile(this.spoolDir, filePath, entry.name);
       }
     }
     return updatedPets;
@@ -430,6 +434,21 @@ export class AppStore {
 
 function ensureDir(dirPath: string): void {
   fs.mkdirSync(dirPath, { recursive: true });
+}
+
+function moveBadSpoolFile(spoolDir: string, filePath: string, fileName: string): void {
+  const badDir = path.join(spoolDir, "bad");
+  ensureDir(badDir);
+  const targetPath = path.join(badDir, `${Date.now()}-${fileName}.bad`);
+  try {
+    fs.renameSync(filePath, targetPath);
+  } catch {
+    try {
+      fs.unlinkSync(filePath);
+    } catch {
+      // Ignore quarantine failures; the next startup can try again.
+    }
+  }
 }
 
 function readString(source: Record<string, unknown>, key: string): string | undefined {
