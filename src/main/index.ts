@@ -519,6 +519,11 @@ function loadView(window: BrowserWindow, view: "pet" | "history" | "settings", p
 }
 
 function getRendererEntry(): string {
+  const devServerUrl = process.env.VIBEPET_RENDERER_URL?.trim();
+  if (devServerUrl) {
+    return devServerUrl.endsWith("/") ? devServerUrl : `${devServerUrl}/`;
+  }
+
   return `http://127.0.0.1:${INGEST_PORT}/`;
 }
 

@@ -5,7 +5,8 @@
   "type": "module",
   "main": "dist-electron/main/index.js",
   "scripts": {
-    "dev": "vite --host 127.0.0.1",
+    "dev": "node scripts/dev-electron.mjs",
+    "dev:renderer": "vite --host 127.0.0.1",
     "electron:dev": "electron .",
     "start": "electron .",
     "build": "tsc -p tsconfig.node.json && tsc -p tsconfig.app.json && vite build",

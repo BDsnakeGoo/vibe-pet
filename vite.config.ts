@@ -9,7 +9,13 @@ export default defineConfig({
   },
   server: {
     host: "127.0.0.1",
-    port: 5173
+    port: 5173,
+    strictPort: true,
+    proxy: {
+      "/api": "http://127.0.0.1:44557",
+      "/gif-packs": "http://127.0.0.1:44557",
+      "/hook-event": "http://127.0.0.1:44557"
+    }
   },
   test: {
     include: ["src/**/*.test.ts"],
