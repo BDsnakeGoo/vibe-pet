@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { classifyEvent, nextPetState } from "./stateMachine";
-import type { HookEvent } from "./types";
+import { classifyEvent, nextPetState } from "../../src/shared/stateMachine";
+import type { HookEvent } from "../../src/shared/types";
 
 function event(eventName: string, raw: Record<string, unknown> = {}): HookEvent {
   return {

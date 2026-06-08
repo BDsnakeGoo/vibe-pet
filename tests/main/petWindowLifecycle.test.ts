@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PetWindowDismissals } from "./petWindowLifecycle";
+import { PetWindowDismissals } from "../../src/main/petWindowLifecycle";
 
 describe("PetWindowDismissals", () => {
   it("keeps a manually closed pet dismissed until all pets are restored", () => {

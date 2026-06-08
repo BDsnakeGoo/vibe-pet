@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { PetWindowDragController } from "./petWindowDrag";
+import { PetWindowDragController } from "../../src/main/petWindowDrag";
 
 describe("PetWindowDragController", () => {
   it("moves a window from the initial pointer and window position", () => {

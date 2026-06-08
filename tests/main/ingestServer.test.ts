@@ -3,9 +3,9 @@ import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createIngestServer } from "./ingestServer";
-import type { AppSnapshot, PetProfile } from "../shared/types";
-import type { AppStore } from "./storage";
+import { createIngestServer } from "../../src/main/ingestServer";
+import type { AppSnapshot, PetProfile } from "../../src/shared/types";
+import type { AppStore } from "../../src/main/storage";
 
 let tempRoot: string;
 let rendererRoot: string;

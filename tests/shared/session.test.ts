@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveSessionId } from "./session";
+import { resolveSessionId } from "../../src/shared/session";
 
 describe("resolveSessionId", () => {
   it("uses explicit session_id when present", () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calculatePetWindowLayout } from "./petLayout";
+import { calculatePetWindowLayout } from "../../src/renderer/petLayout";
 
 describe("calculatePetWindowLayout", () => {
   it("sizes the window from gif, top text, and bottom text", () => {

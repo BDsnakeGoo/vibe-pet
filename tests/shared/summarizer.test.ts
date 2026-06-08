@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { summarizeEvent } from "./summarizer";
-import type { HookEvent } from "./types";
+import { summarizeEvent } from "../../src/shared/summarizer";
+import type { HookEvent } from "../../src/shared/types";
 
 describe("summarizeEvent", () => {
   it("summarizes command execution without exposing full raw payloads", () => {
