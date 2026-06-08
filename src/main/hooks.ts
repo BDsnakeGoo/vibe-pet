@@ -113,7 +113,58 @@ export class HookInstaller {
 
 function createHookCommand(projectRoot: string, provider: "codex" | "claude"): string {
   const dispatcherPath = path.join(projectRoot, "scripts", "hook-dispatcher.mjs");
-  return `node "${dispatcherPath}" --provider ${provider}`;
+  return `${formatCommandArgument(resolveNodeExecutable())} ${formatCommandArgument(dispatcherPath)} --provider ${provider}`;
+}
+
+function resolveNodeExecutable(): string {
+  const configuredNode = firstExistingFile(process.env.VIBEPET_HOOK_NODE, process.env.npm_node_execpath);
+  if (configuredNode) {
+    return configuredNode;
+  }
+
+  return findExecutableOnPath("node") ?? "node";
+}
+
+function firstExistingFile(...values: Array<string | undefined>): string | undefined {
+  for (const value of values) {
+    const trimmed = value?.trim();
+    if (trimmed && fs.existsSync(trimmed)) {
+      return trimmed;
+    }
+  }
+  return undefined;
+}
+
+function findExecutableOnPath(command: string): string | undefined {
+  const pathValue = process.env.PATH ?? "";
+  const extensions =
+    process.platform === "win32"
+      ? (process.env.PATHEXT ?? ".EXE;.CMD;.BAT;.COM").split(";").filter(Boolean)
+      : [""];
+  const commandHasExtension = path.extname(command).length > 0;
+
+  for (const directory of pathValue.split(path.delimiter)) {
+    if (!directory) {
+      continue;
+    }
+
+    for (const extension of commandHasExtension ? [""] : extensions) {
+      const candidate = path.join(directory, `${command}${extension.toLowerCase()}`);
+      if (fs.existsSync(candidate)) {
+        return candidate;
+      }
+    }
+  }
+
+  return undefined;
+}
+
+function formatCommandArgument(value: string): string {
+  if (value === "node") {
+    return value;
+  }
+
+  return `"${value.replace(/"/g, '\\"')}"`;
 }
 
 function mergeManagedEntries(existingValue: unknown, command: string): unknown[] {
