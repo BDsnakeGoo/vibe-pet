@@ -4,7 +4,8 @@ import { randomUUID } from "node:crypto";
 import { classifyEvent, nextPetState } from "../shared/stateMachine.js";
 import { resolveSessionId } from "../shared/session.js";
 import { summarizeEvent } from "../shared/summarizer.js";
-import type { AppSettings, AppSnapshot, GifGroup, GifMap, HistoryItem, HookEvent, PetProfile, Provider } from "../shared/types.js";
+import { CHAT_PET_ID, CHAT_PET_NAME } from "../shared/types.js";
+import type { AppSettings, AppSnapshot, GifGroup, GifMap, HistoryItem, HookEvent, PetProfile, PetState, Provider } from "../shared/types.js";
 
 export const APP_NAME = "VibePet";
 export const INGEST_PORT = 44557;
@@ -15,7 +16,7 @@ const BUILTIN_GIF_GROUP_ID = "builtin";
 const DEFAULT_FILE_GIF_GROUP_ID = "default";
 const STARTUP_PET_PROVIDER: Provider = "codex";
 const STARTUP_PET_SESSION_ID = "startup";
-const STARTUP_PET_ID = `${STARTUP_PET_PROVIDER}:${STARTUP_PET_SESSION_ID}`;
+export const STARTUP_PET_ID = `${STARTUP_PET_PROVIDER}:${STARTUP_PET_SESSION_ID}`;
 
 interface PersistedState {
   pets: PetProfile[];
@@ -121,8 +122,20 @@ export class AppStore {
     return [...this.state.pets];
   }
 
+  ensureChatPet(receivedAt = new Date().toISOString()): PetProfile {
+    const existing = this.state.pets.find((candidate) => candidate.id === CHAT_PET_ID);
+    if (existing) {
+      return existing;
+    }
+
+    const pet = this.createPetProfile(CHAT_PET_ID, "chat", "default", receivedAt, CHAT_PET_NAME);
+    this.state.pets.unshift(pet);
+    this.save();
+    return pet;
+  }
+
   ensureStartupPet(receivedAt = new Date().toISOString()): PetProfile | undefined {
-    if (this.state.pets.length > 0) {
+    if (this.state.pets.some((pet) => pet.id !== CHAT_PET_ID)) {
       return undefined;
     }
 
@@ -187,6 +200,18 @@ export class AppStore {
     }
 
     pet.state = "idle";
+    pet.lastSeenAt = receivedAt;
+    this.save();
+    return true;
+  }
+
+  setPetState(petId: string, state: PetState, receivedAt = new Date().toISOString()): boolean {
+    const pet = this.state.pets.find((candidate) => candidate.id === petId);
+    if (!pet) {
+      return false;
+    }
+
+    pet.state = state;
     pet.lastSeenAt = receivedAt;
     this.save();
     return true;

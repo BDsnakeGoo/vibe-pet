@@ -1,4 +1,7 @@
-export type Provider = "codex" | "claude";
+export const CHAT_PET_ID = "chat:default";
+export const CHAT_PET_NAME = "聊天宠物";
+
+export type Provider = "codex" | "claude" | "chat";
 
 export type PetState = "idle" | "working" | "waiting" | "completed";
 

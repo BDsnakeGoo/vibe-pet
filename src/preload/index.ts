@@ -16,6 +16,7 @@ const api = {
   updatePet: (petId: string, payload: Partial<Pick<PetProfile, "name" | "position" | "gifGroupId">>): Promise<PetProfile | undefined> =>
     ipcRenderer.invoke("pet:update", petId, payload),
   updateSettings: (payload: Partial<AppSettings>): Promise<AppSettings> => ipcRenderer.invoke("settings:update", payload),
+  submitPrompt: (prompt: string): Promise<{ ok: boolean; output?: string; error?: string }> => ipcRenderer.invoke("ai:submit-prompt", prompt),
   resizePetWindow: (petId: string, size: PetWindowSize): void => ipcRenderer.send("pet:resize-window", petId, size),
   startPetWindowDrag: (point: { x: number; y: number }): void => ipcRenderer.send("pet:drag-start", point),
   dragPetWindow: (point: { x: number; y: number }): void => ipcRenderer.send("pet:drag-move", point),

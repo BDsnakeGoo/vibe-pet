@@ -85,4 +85,41 @@ describe("runtime preload bridge", () => {
     expect(sentMessages).toContainEqual(["pet:drag-move", { x: 110, y: 150 }]);
     expect(sentMessages).toContainEqual(["pet:drag-end"]);
   });
+
+  it("exposes prompt submission from the CommonJS preload", async () => {
+    let exposedApi: Record<string, unknown> | undefined;
+    const invokedMessages: unknown[][] = [];
+    const preloadPath = path.resolve(process.cwd(), "scripts", "preload.cjs");
+    const source = fs.readFileSync(preloadPath, "utf8");
+    const context = {
+      require: (name: string) => {
+        if (name !== "electron") {
+          throw new Error(`Unexpected require: ${name}`);
+        }
+
+        return {
+          contextBridge: {
+            exposeInMainWorld: vi.fn((_name: string, api: Record<string, unknown>) => {
+              exposedApi = api;
+            })
+          },
+          ipcRenderer: {
+            invoke: vi.fn((...args: unknown[]) => {
+              invokedMessages.push(args);
+              return Promise.resolve({ ok: true });
+            }),
+            on: vi.fn(),
+            removeListener: vi.fn(),
+            send: vi.fn()
+          }
+        };
+      }
+    };
+
+    vm.runInNewContext(source, context, { filename: preloadPath });
+
+    await (exposedApi?.submitPrompt as (prompt: string) => Promise<{ ok: boolean }>)("fix the build");
+
+    expect(invokedMessages).toContainEqual(["ai:submit-prompt", "fix the build"]);
+  });
 });

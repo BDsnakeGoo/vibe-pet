@@ -9,6 +9,10 @@ const INGEST_URL = "http://127.0.0.1:44557/hook-event";
 
 const provider = readArg("--provider") || "codex";
 const payload = await readPayload();
+if (process.env.VIBEPET_SUPPRESS_HOOKS === "1") {
+  process.exit(0);
+}
+
 const envelope = {
   provider,
   eventName:

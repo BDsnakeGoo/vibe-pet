@@ -160,6 +160,59 @@ select {
   overflow: visible;
 }
 
+.pet-prompt-panel {
+  width: min(340px, calc(100vw - 16px));
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  -webkit-app-region: no-drag;
+}
+
+.pet-prompt-form {
+  width: 100%;
+}
+
+.pet-prompt-form input {
+  width: 100%;
+  border: 1px solid rgba(53, 39, 28, 0.16);
+  border-radius: 8px;
+  padding: 6px 8px;
+  background: rgba(255, 255, 255, 0.94);
+  color: #3e3027;
+  font-size: var(--pet-font-size, 13px);
+  line-height: 1.3;
+  outline: none;
+  box-shadow: 0 12px 24px rgba(120, 86, 59, 0.12);
+}
+
+.pet-prompt-form input:focus {
+  border-color: #1b7f78;
+}
+
+.pet-prompt-reply {
+  width: 100%;
+  max-height: min(520px, calc(100vh - 132px));
+  overflow-y: auto;
+  overflow-x: hidden;
+  border: 1px solid rgba(53, 39, 28, 0.12);
+  border-radius: 8px;
+  padding: 6px 8px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #3e3027;
+  font-size: calc(var(--pet-font-size, 13px) - 1px);
+  line-height: 1.35;
+  text-align: left;
+  white-space: pre-wrap;
+  word-break: break-word;
+  box-shadow: 0 12px 24px rgba(120, 86, 59, 0.1);
+}
+
+.pet-prompt-reply.error {
+  border-color: rgba(190, 58, 48, 0.28);
+  color: #8f2f28;
+}
+
 .screen-panel {
   padding: 24px;
   color: #2c2721;

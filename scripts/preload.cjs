@@ -14,6 +14,7 @@ const api = {
   uninstallHooks: () => ipcRenderer.invoke("hooks:uninstall"),
   updatePet: (petId, payload) => ipcRenderer.invoke("pet:update", petId, payload),
   updateSettings: (payload) => ipcRenderer.invoke("settings:update", payload),
+  submitPrompt: (prompt) => ipcRenderer.invoke("ai:submit-prompt", prompt),
   resizePetWindow: (petId, size) => ipcRenderer.send("pet:resize-window", petId, size),
   startPetWindowDrag: (point) => ipcRenderer.send("pet:drag-start", point),
   dragPetWindow: (point) => ipcRenderer.send("pet:drag-move", point),

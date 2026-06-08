@@ -1,4 +1,7 @@
+import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
+import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { app, BrowserWindow, ipcMain, Menu, Tray, nativeImage, shell } from "electron";
 import { createIngestServer } from "./ingestServer.js";
@@ -6,6 +9,7 @@ import { HookInstaller } from "./hooks.js";
 import { PetWindowDragController } from "./petWindowDrag.js";
 import { PetWindowDismissals } from "./petWindowLifecycle.js";
 import { AppStore, APP_NAME, INGEST_PORT, getDataRoot } from "./storage.js";
+import { CHAT_PET_ID } from "../shared/types.js";
 import type { AppSettings, AppSnapshot, PetProfile, PetWindowSize } from "../shared/types.js";
 
 const petWindows = new Map<string, BrowserWindow>();
@@ -15,6 +19,8 @@ let historyWindow: BrowserWindow | null = null;
 let settingsWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let isQuitting = false;
+let codexChatSession: CodexChatSession | null = null;
+let codexChatInFlight = false;
 
 const currentFilePath = fileURLToPath(import.meta.url);
 const currentDirPath = path.dirname(currentFilePath);
@@ -37,7 +43,24 @@ const hasSingleInstanceLock = app.requestSingleInstanceLock();
 const shouldQuitFromTaskbar = process.argv.includes(QUIT_FROM_TASKBAR_ARG);
 const INITIAL_PET_WINDOW_SIZE: PetWindowSize = { width: 160, height: 180 };
 const MIN_PET_WINDOW_SIZE: PetWindowSize = { width: 96, height: 96 };
-const MAX_PET_WINDOW_SIZE: PetWindowSize = { width: 440, height: 440 };
+const MAX_PET_WINDOW_SIZE: PetWindowSize = { width: 440, height: 760 };
+
+interface CodexChatSession {
+  id: string;
+  filePath: string;
+}
+
+interface CodexLaunch {
+  command: string;
+  argsPrefix: string[];
+  shell?: boolean;
+}
+
+interface CodexRunResult {
+  exitCode: number | null;
+  stdout: string;
+  stderr: string;
+}
 
 app.setName(APP_NAME);
 if (process.platform === "win32") {
@@ -60,6 +83,7 @@ if (!hasSingleInstanceLock || shouldQuitFromTaskbar) {
     configureTaskbarTasks();
     ensureTray();
     await startServer();
+    store.ensureChatPet();
     store.ensureStartupPet();
     syncPetWindows();
     broadcastSnapshot();
@@ -109,6 +133,7 @@ ipcMain.handle("settings:update", (_event, payload: Partial<AppSettings>) => {
   broadcastSnapshot();
   return settings;
 });
+ipcMain.handle("ai:submit-prompt", (_event, prompt: string) => submitPromptToCodex(prompt));
 ipcMain.handle("hooks:install", () => {
   const status = hookInstaller.installAll();
   broadcastSnapshot();
@@ -556,6 +581,286 @@ async function startServer(): Promise<void> {
   await new Promise<void>((resolve) => {
     ingestServer.listen(INGEST_PORT, "127.0.0.1", () => resolve());
   });
+}
+
+async function submitPromptToCodex(rawPrompt: string): Promise<{ ok: boolean; output?: string; error?: string }> {
+  const prompt = typeof rawPrompt === "string" ? rawPrompt.trim() : "";
+  if (!prompt) {
+    return { ok: false, error: "Prompt is empty" };
+  }
+
+  if (codexChatInFlight) {
+    return { ok: false, error: "Codex is still working on the previous prompt" };
+  }
+
+  const codexLaunch = resolveCodexLaunch();
+  if (!codexLaunch) {
+    return { ok: false, error: "Codex executable was not found in PATH" };
+  }
+
+  codexChatInFlight = true;
+  const startedAt = Date.now();
+  const args = codexChatSession
+    ? ["exec", "resume", codexChatSession.id, "-"]
+    : ["exec", "--cd", projectRoot, "-"];
+
+  try {
+    store.ensureChatPet();
+    store.setPetState(CHAT_PET_ID, "working");
+    syncPetWindows();
+    broadcastSnapshot();
+
+    const result = await runCodexProcess(codexLaunch, args, prompt);
+    const session = codexChatSession ?? findCodexSessionForPrompt(prompt, startedAt);
+    if (session) {
+      codexChatSession = session;
+    }
+
+    const output = session ? readLastCodexMessage(session.filePath) : "";
+    if (result.exitCode !== 0) {
+      return {
+        ok: false,
+        error: summarizeCodexFailure(result.stderr || result.stdout || `Codex exited with code ${result.exitCode}`)
+      };
+    }
+
+    return {
+      ok: true,
+      output: output || result.stdout.trim() || "Codex finished without a final message."
+    };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : String(error) };
+  } finally {
+    store.setPetState(CHAT_PET_ID, "completed");
+    broadcastSnapshot();
+    codexChatInFlight = false;
+  }
+}
+
+function resolveCodexLaunch(): CodexLaunch | undefined {
+  if (process.platform === "win32") {
+    const codexShim = findExecutableOnPath("codex.cmd") ?? findExecutableOnPath("codex");
+    if (codexShim) {
+      const shimDir = path.dirname(codexShim);
+      const nativeCodex = path.join(
+        shimDir,
+        "node_modules",
+        "@openai",
+        "codex",
+        "node_modules",
+        "@openai",
+        "codex-win32-x64",
+        "vendor",
+        "x86_64-pc-windows-msvc",
+        "bin",
+        "codex.exe"
+      );
+      if (fs.existsSync(nativeCodex)) {
+        return { command: nativeCodex, argsPrefix: [] };
+      }
+
+      const codexScript = path.join(shimDir, "node_modules", "@openai", "codex", "bin", "codex.js");
+      const bundledNode = path.join(shimDir, "node.exe");
+      const nodeCommand = fs.existsSync(bundledNode) ? bundledNode : findExecutableOnPath("node.exe") ?? findExecutableOnPath("node");
+      if (fs.existsSync(codexScript) && nodeCommand) {
+        return { command: nodeCommand, argsPrefix: [codexScript] };
+      }
+
+      return { command: codexShim, argsPrefix: [], shell: true };
+    }
+  }
+
+  const codexCommand = findExecutableOnPath("codex");
+  return codexCommand ? { command: codexCommand, argsPrefix: [] } : undefined;
+}
+
+function runCodexProcess(launch: CodexLaunch, args: string[], prompt: string): Promise<CodexRunResult> {
+  return new Promise((resolve, reject) => {
+    const commandArgs = [...launch.argsPrefix, ...args];
+    const child = launch.shell
+      ? spawn(toCommandLine([launch.command, ...commandArgs]), [], {
+          cwd: projectRoot,
+          env: {
+            ...process.env,
+            VIBEPET_SUPPRESS_HOOKS: "1"
+          },
+          shell: true,
+          windowsHide: true,
+          stdio: ["pipe", "pipe", "pipe"]
+        })
+      : spawn(launch.command, commandArgs, {
+          cwd: projectRoot,
+          env: {
+            ...process.env,
+            VIBEPET_SUPPRESS_HOOKS: "1"
+          },
+          windowsHide: true,
+          stdio: ["pipe", "pipe", "pipe"]
+        });
+    let stdout = "";
+    let stderr = "";
+
+    child.once("error", (error) => {
+      reject(error);
+    });
+    child.stdout?.on("data", (chunk: Buffer) => {
+      stdout += chunk.toString("utf8");
+    });
+    child.stderr?.on("data", (chunk: Buffer) => {
+      stderr += chunk.toString("utf8");
+    });
+    child.once("close", (exitCode) => {
+      resolve({ exitCode, stdout, stderr });
+    });
+    child.stdin?.end(prompt);
+  });
+}
+
+function findCodexSessionForPrompt(prompt: string, startedAt: number): CodexChatSession | undefined {
+  const candidates = listCodexSessionFiles()
+    .filter((file) => file.mtimeMs >= startedAt - 2000)
+    .sort((left, right) => right.mtimeMs - left.mtimeMs);
+
+  for (const candidate of candidates) {
+    const id = extractCodexSessionId(candidate.filePath);
+    if (id && sessionContainsUserPrompt(candidate.filePath, prompt)) {
+      return { id, filePath: candidate.filePath };
+    }
+  }
+
+  const fallback = candidates.find((candidate) => extractCodexSessionId(candidate.filePath));
+  return fallback ? { id: extractCodexSessionId(fallback.filePath)!, filePath: fallback.filePath } : undefined;
+}
+
+function listCodexSessionFiles(): Array<{ filePath: string; mtimeMs: number }> {
+  const sessionsRoot = path.join(process.env.CODEX_HOME ?? path.join(os.homedir(), ".codex"), "sessions");
+  const results: Array<{ filePath: string; mtimeMs: number }> = [];
+  collectCodexSessionFiles(sessionsRoot, results);
+  return results;
+}
+
+function collectCodexSessionFiles(directory: string, results: Array<{ filePath: string; mtimeMs: number }>): void {
+  if (!fs.existsSync(directory)) {
+    return;
+  }
+
+  for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+    const entryPath = path.join(directory, entry.name);
+    if (entry.isDirectory()) {
+      collectCodexSessionFiles(entryPath, results);
+      continue;
+    }
+
+    if (!entry.isFile() || !entry.name.endsWith(".jsonl")) {
+      continue;
+    }
+
+    const stat = fs.statSync(entryPath);
+    results.push({ filePath: entryPath, mtimeMs: stat.mtimeMs });
+  }
+}
+
+function sessionContainsUserPrompt(filePath: string, prompt: string): boolean {
+  return readJsonl(filePath).some((record) => {
+    const payload = record.payload;
+    if (!payload || typeof payload !== "object") {
+      return false;
+    }
+
+    if (payload.type === "user_message" && payload.message === prompt) {
+      return true;
+    }
+
+    if (payload.type === "message" && payload.role === "user" && Array.isArray(payload.content)) {
+      return payload.content.some((item) => item?.type === "input_text" && item.text === prompt);
+    }
+
+    return false;
+  });
+}
+
+function readLastCodexMessage(filePath: string): string {
+  let lastMessage = "";
+  for (const record of readJsonl(filePath)) {
+    const payload = record.payload;
+    if (!payload || typeof payload !== "object") {
+      continue;
+    }
+
+    if (payload.type === "task_complete" && typeof payload.last_agent_message === "string") {
+      lastMessage = payload.last_agent_message;
+    } else if (payload.type === "agent_message" && typeof payload.message === "string") {
+      lastMessage = payload.message;
+    }
+  }
+  return lastMessage.trim();
+}
+
+function readJsonl(filePath: string): Array<{ payload?: Record<string, any> }> {
+  try {
+    return fs
+      .readFileSync(filePath, "utf8")
+      .split(/\r?\n/)
+      .filter(Boolean)
+      .flatMap((line) => {
+        try {
+          return [JSON.parse(line) as { payload?: Record<string, any> }];
+        } catch {
+          return [];
+        }
+      });
+  } catch {
+    return [];
+  }
+}
+
+function extractCodexSessionId(filePath: string): string | undefined {
+  return path.basename(filePath).match(/rollout-.*-([0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12})\.jsonl$/i)?.[1];
+}
+
+function summarizeCodexFailure(value: string): string {
+  const text = value.trim();
+  if (!text) {
+    return "Codex failed without an error message.";
+  }
+
+  return text.length > 500 ? `${text.slice(0, 500)}...` : text;
+}
+
+function findExecutableOnPath(command: string): string | undefined {
+  const pathValue = process.env.PATH ?? "";
+  const extensions =
+    process.platform === "win32"
+      ? (process.env.PATHEXT ?? ".EXE;.CMD;.BAT;.COM").split(";").filter(Boolean)
+      : [""];
+  const commandHasExtension = path.extname(command).length > 0;
+
+  for (const directory of pathValue.split(path.delimiter)) {
+    if (!directory) {
+      continue;
+    }
+
+    for (const extension of commandHasExtension ? [""] : extensions) {
+      const candidate = path.join(directory, `${command}${extension.toLowerCase()}`);
+      if (fs.existsSync(candidate)) {
+        return candidate;
+      }
+    }
+  }
+
+  return undefined;
+}
+
+function toCommandLine(parts: string[]): string {
+  return parts.map(quoteShellArg).join(" ");
+}
+
+function quoteShellArg(value: string): string {
+  if (/^[A-Za-z0-9_./:\\-]+$/.test(value)) {
+    return value;
+  }
+
+  return `"${value.replace(/"/g, "\"\"")}"`;
 }
 
 function configureTaskbarTasks(): void {

@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AppStore } from "../../src/main/storage";
+import { CHAT_PET_ID, CHAT_PET_NAME } from "../../src/shared/types";
 
 vi.mock("electron", () => ({
   app: {}
@@ -108,6 +109,18 @@ describe("AppStore", () => {
     expect(pet?.name).toBe("VibePet");
     expect(pet?.state).toBe("idle");
     expect(store.getPets()).toHaveLength(1);
+  });
+
+  it("keeps the chat pet separate from the startup pet", () => {
+    const store = new AppStore(projectRoot);
+
+    const chatPet = store.ensureChatPet("2026-06-08T00:00:00.000Z");
+    const startupPet = store.ensureStartupPet("2026-06-08T00:00:01.000Z");
+
+    expect(chatPet.id).toBe(CHAT_PET_ID);
+    expect(chatPet.name).toBe(CHAT_PET_NAME);
+    expect(startupPet?.id).toBe("codex:startup");
+    expect(store.getPets().map((pet) => pet.id)).toEqual([CHAT_PET_ID, "codex:startup"]);
   });
 
   it("promotes the startup pet to the first real hook session", () => {

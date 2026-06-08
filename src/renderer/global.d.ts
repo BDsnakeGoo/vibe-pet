@@ -12,6 +12,7 @@ declare global {
       uninstallHooks(): Promise<{ codexInstalled: boolean; claudeInstalled: boolean }>;
       updatePet(petId: string, payload: Partial<Pick<PetProfile, "name" | "position" | "gifGroupId">>): Promise<PetProfile | undefined>;
       updateSettings(payload: Partial<AppSettings>): Promise<AppSettings>;
+      submitPrompt(prompt: string): Promise<{ ok: boolean; output?: string; error?: string }>;
       resizePetWindow(petId: string, size: PetWindowSize): void;
       startPetWindowDrag(point: { x: number; y: number }): void;
       dragPetWindow(point: { x: number; y: number }): void;

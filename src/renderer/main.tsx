@@ -1,6 +1,7 @@
 import { StrictMode, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import type { CSSProperties, PointerEvent as ReactPointerEvent, ReactElement } from "react";
+import type { CSSProperties, FormEvent, PointerEvent as ReactPointerEvent, ReactElement } from "react";
 import { createRoot } from "react-dom/client";
+import { CHAT_PET_ID } from "../shared/types";
 import type { AppSettings, AppSnapshot, PetProfile, PetState } from "../shared/types";
 import { calculatePetWindowLayout } from "./petLayout";
 import "./styles.css";
@@ -50,9 +51,18 @@ function App(): ReactElement {
 function PetView({ pet, settings }: { pet: PetProfile | null; settings: AppSettings }): ReactElement {
   const nameRef = useRef<HTMLDivElement>(null);
   const captionRef = useRef<HTMLDivElement>(null);
+  const promptPanelRef = useRef<HTMLDivElement>(null);
   const draggingRef = useRef(false);
+  const dragStartRef = useRef<{ x: number; y: number } | null>(null);
+  const movedRef = useRef(false);
   const [naturalSize, setNaturalSize] = useState({ width: 96, height: 96 });
   const [artSize, setArtSize] = useState({ width: 96, height: 96 });
+  const [promptOpen, setPromptOpen] = useState(false);
+  const [promptText, setPromptText] = useState("");
+  const [submittingPrompt, setSubmittingPrompt] = useState(false);
+  const [lastAssistantMessage, setLastAssistantMessage] = useState("");
+  const [promptError, setPromptError] = useState("");
+  const isChatPet = pet?.id === CHAT_PET_ID;
   const petStyle = {
     "--pet-font-size": `${settings.petWindow.fontSize}px`
   } as CSSProperties;
@@ -69,6 +79,12 @@ function PetView({ pet, settings }: { pet: PetProfile | null; settings: AppSetti
     };
   }, []);
 
+  useEffect(() => {
+    if (promptOpen) {
+      promptPanelRef.current?.querySelector("input")?.focus();
+    }
+  }, [promptOpen]);
+
   useLayoutEffect(() => {
     if (!pet || !nameRef.current || !captionRef.current) {
       return;
@@ -76,11 +92,14 @@ function PetView({ pet, settings }: { pet: PetProfile | null; settings: AppSetti
 
     const nameRect = nameRef.current.getBoundingClientRect();
     const captionRect = captionRef.current.getBoundingClientRect();
+    const promptRect = promptPanelRef.current?.getBoundingClientRect();
+    const promptWidth = promptRect?.width ?? 0;
+    const promptHeight = promptRect ? promptRect.height + 4 : 0;
     const layout = calculatePetWindowLayout({
-      nameWidth: Math.max(nameRect.width, nameRef.current.scrollWidth),
+      nameWidth: Math.max(nameRect.width, nameRef.current.scrollWidth, promptWidth),
       nameHeight: Math.max(nameRect.height, nameRef.current.scrollHeight),
-      captionWidth: Math.max(captionRect.width, captionRef.current.scrollWidth),
-      captionHeight: Math.max(captionRect.height, captionRef.current.scrollHeight),
+      captionWidth: Math.max(captionRect.width, captionRef.current.scrollWidth, promptWidth),
+      captionHeight: Math.max(captionRect.height, captionRef.current.scrollHeight) + promptHeight,
       naturalWidth: naturalSize.width,
       naturalHeight: naturalSize.height,
       fontSize: settings.petWindow.fontSize
@@ -95,7 +114,7 @@ function PetView({ pet, settings }: { pet: PetProfile | null; settings: AppSetti
           }
     );
     window.vibePet.resizePetWindow(pet.id, layout.window);
-  }, [pet, settings.petWindow.fontSize, naturalSize]);
+  }, [pet, settings.petWindow.fontSize, naturalSize, promptOpen, submittingPrompt, lastAssistantMessage, promptError]);
 
   if (!pet) {
     return <div className="screen screen-pet" style={petStyle} />;
@@ -134,6 +153,31 @@ function PetView({ pet, settings }: { pet: PetProfile | null; settings: AppSetti
           )}
         </div>
         <div ref={captionRef} className="pet-caption">{labelForState(pet.state)}</div>
+        {isChatPet && promptOpen ? (
+          <div ref={promptPanelRef} className="pet-prompt-panel" onPointerDown={(event) => event.stopPropagation()}>
+            <form className="pet-prompt-form" onSubmit={handlePromptSubmit}>
+              <input
+                value={promptText}
+                disabled={submittingPrompt}
+                placeholder="输入给 Codex..."
+                onChange={(event) => {
+                  setPromptText(event.currentTarget.value);
+                  setPromptError("");
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Escape") {
+                    setPromptOpen(false);
+                  }
+                }}
+              />
+            </form>
+            {submittingPrompt || promptError || lastAssistantMessage ? (
+              <div className={promptError ? "pet-prompt-reply error" : "pet-prompt-reply"}>
+                {submittingPrompt ? "Codex 正在思考..." : promptError || lastAssistantMessage}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
       </div>
     </div>
   );
@@ -142,9 +186,14 @@ function PetView({ pet, settings }: { pet: PetProfile | null; settings: AppSetti
     if (event.button !== 0) {
       return;
     }
+    if ((event.target as HTMLElement).closest(".pet-prompt-panel")) {
+      return;
+    }
 
     event.preventDefault();
     draggingRef.current = true;
+    movedRef.current = false;
+    dragStartRef.current = { x: event.screenX, y: event.screenY };
     event.currentTarget.setPointerCapture(event.pointerId);
     window.vibePet.startPetWindowDrag({ x: event.screenX, y: event.screenY });
   }
@@ -154,6 +203,10 @@ function PetView({ pet, settings }: { pet: PetProfile | null; settings: AppSetti
       return;
     }
 
+    const start = dragStartRef.current;
+    if (start && Math.hypot(event.screenX - start.x, event.screenY - start.y) > 4) {
+      movedRef.current = true;
+    }
     window.vibePet.dragPetWindow({ x: event.screenX, y: event.screenY });
   }
 
@@ -163,10 +216,36 @@ function PetView({ pet, settings }: { pet: PetProfile | null; settings: AppSetti
     }
 
     draggingRef.current = false;
+    const wasClick = !movedRef.current;
+    dragStartRef.current = null;
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
     window.vibePet.endPetWindowDrag();
+    if (wasClick && isChatPet) {
+      setPromptOpen((current) => !current);
+    }
+  }
+
+  async function handlePromptSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
+    event.preventDefault();
+    const prompt = promptText.trim();
+    if (!prompt || submittingPrompt) {
+      return;
+    }
+
+    setSubmittingPrompt(true);
+    setPromptError("");
+    setLastAssistantMessage("Codex 正在处理你的请求...");
+    const result = await window.vibePet.submitPrompt(prompt);
+    setSubmittingPrompt(false);
+    if (result.ok) {
+      setPromptText("");
+      setLastAssistantMessage(result.output ?? "Codex 已完成。");
+    } else {
+      setPromptError(result.error ?? "Prompt submit failed");
+      console.warn(result.error ?? "Prompt submit failed");
+    }
   }
 }
 

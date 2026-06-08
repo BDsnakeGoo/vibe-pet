@@ -88,4 +88,18 @@ describe("calculatePetWindowLayout", () => {
 
     expect(result.window.height).toBeGreaterThanOrEqual(200);
   });
+
+  it("allows chat reply content to grow the pet window beyond the compact pet cap", () => {
+    const result = calculatePetWindowLayout({
+      nameWidth: 80,
+      nameHeight: 24,
+      captionWidth: 340,
+      captionHeight: 560,
+      naturalWidth: 96,
+      naturalHeight: 96,
+      fontSize: 13
+    });
+
+    expect(result.window.height).toBeGreaterThan(420);
+  });
 });
