@@ -1,6 +1,7 @@
 import { StrictMode, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, FormEvent, PointerEvent as ReactPointerEvent, ReactElement } from "react";
 import { createRoot } from "react-dom/client";
+import ReactMarkdown from "react-markdown";
 import { CHAT_PET_ID } from "../shared/types";
 import type { AppSettings, AppSnapshot, PetProfile, PetState } from "../shared/types";
 import { calculatePetWindowLayout } from "./petLayout";
@@ -122,7 +123,7 @@ function PetView({ pet, settings }: { pet: PetProfile | null; settings: AppSetti
 
   return (
     <div
-      className={`screen screen-pet state-${pet.state}`}
+      className={`screen screen-pet state-${pet.state}${promptOpen ? " prompt-open" : ""}`}
       style={petStyle}
       onPointerDown={handlePetPointerDown}
       onPointerMove={handlePetPointerMove}
@@ -173,7 +174,11 @@ function PetView({ pet, settings }: { pet: PetProfile | null; settings: AppSetti
             </form>
             {submittingPrompt || promptError || lastAssistantMessage ? (
               <div className={promptError ? "pet-prompt-reply error" : "pet-prompt-reply"}>
-                {submittingPrompt ? "Codex 正在思考..." : promptError || lastAssistantMessage}
+                {submittingPrompt ? (
+                  "Codex 正在思考..."
+                ) : (
+                  <ReactMarkdown>{promptError || lastAssistantMessage}</ReactMarkdown>
+                )}
               </div>
             ) : null}
           </div>

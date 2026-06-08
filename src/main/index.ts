@@ -495,7 +495,8 @@ function resizePetWindow(petId: string, size: PetWindowSize): void {
     return;
   }
 
-  window.setSize(width, height);
+  const [x, y] = window.getPosition();
+  window.setBounds({ x, y, width, height });
 }
 
 function openHistoryWindow(petId?: string): void {

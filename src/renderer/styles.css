@@ -72,6 +72,10 @@ select {
   overflow: visible;
 }
 
+.screen-pet.prompt-open .pet-shell {
+  justify-content: flex-start;
+}
+
 .pet-name {
   max-width: calc(100vw - 16px);
   padding: 0.22em 0.72em;
@@ -166,6 +170,9 @@ select {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  cursor: auto;
+  user-select: text;
+  -webkit-user-select: text;
   -webkit-app-region: no-drag;
 }
 
@@ -183,6 +190,9 @@ select {
   font-size: var(--pet-font-size, 13px);
   line-height: 1.3;
   outline: none;
+  cursor: text;
+  user-select: text;
+  -webkit-user-select: text;
   box-shadow: 0 12px 24px rgba(120, 86, 59, 0.12);
 }
 
@@ -195,6 +205,9 @@ select {
   max-height: 520px;
   overflow-y: auto;
   overflow-x: hidden;
+  cursor: text;
+  user-select: text;
+  -webkit-user-select: text;
   border: 1px solid rgba(53, 39, 28, 0.12);
   border-radius: 8px;
   padding: 6px 8px;
@@ -203,9 +216,67 @@ select {
   font-size: calc(var(--pet-font-size, 13px) - 1px);
   line-height: 1.35;
   text-align: left;
-  white-space: pre-wrap;
+  white-space: normal;
   word-break: break-word;
   box-shadow: 0 12px 24px rgba(120, 86, 59, 0.1);
+}
+
+.pet-prompt-reply p,
+.pet-prompt-reply ul,
+.pet-prompt-reply ol,
+.pet-prompt-reply pre,
+.pet-prompt-reply blockquote {
+  margin: 0 0 0.55em;
+}
+
+.pet-prompt-reply p:last-child,
+.pet-prompt-reply ul:last-child,
+.pet-prompt-reply ol:last-child,
+.pet-prompt-reply pre:last-child,
+.pet-prompt-reply blockquote:last-child {
+  margin-bottom: 0;
+}
+
+.pet-prompt-reply ul,
+.pet-prompt-reply ol {
+  padding-left: 1.35em;
+}
+
+.pet-prompt-reply li + li {
+  margin-top: 0.2em;
+}
+
+.pet-prompt-reply code {
+  border-radius: 4px;
+  padding: 0.08em 0.32em;
+  background: rgba(53, 39, 28, 0.08);
+  font-family: "Cascadia Code", Consolas, monospace;
+  font-size: 0.92em;
+}
+
+.pet-prompt-reply pre {
+  max-width: 100%;
+  overflow-x: auto;
+  border-radius: 6px;
+  padding: 7px 8px;
+  background: rgba(53, 39, 28, 0.08);
+}
+
+.pet-prompt-reply pre code {
+  padding: 0;
+  background: transparent;
+}
+
+.pet-prompt-reply blockquote {
+  border-left: 3px solid rgba(27, 127, 120, 0.35);
+  padding-left: 8px;
+  color: #5f5049;
+}
+
+.pet-prompt-reply a {
+  color: #1b7f78;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
 }
 
 .pet-prompt-reply.error {
