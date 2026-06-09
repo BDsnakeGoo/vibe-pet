@@ -54,10 +54,13 @@ function PetView({ pet, settings }: { pet: PetProfile | null; settings: AppSetti
   const captionRef = useRef<HTMLDivElement>(null);
   const promptPanelRef = useRef<HTMLDivElement>(null);
   const draggingRef = useRef(false);
+  const resizingPromptRef = useRef(false);
+  const resizeStartRef = useRef<{ x: number; width: number } | null>(null);
   const dragStartRef = useRef<{ x: number; y: number } | null>(null);
   const movedRef = useRef(false);
   const [naturalSize, setNaturalSize] = useState({ width: 96, height: 96 });
   const [artSize, setArtSize] = useState({ width: 96, height: 96 });
+  const [promptPanelWidth, setPromptPanelWidth] = useState(() => readStoredPromptPanelWidth());
   const [promptOpen, setPromptOpen] = useState(false);
   const [promptText, setPromptText] = useState("");
   const [submittingPrompt, setSubmittingPrompt] = useState(false);
@@ -65,7 +68,8 @@ function PetView({ pet, settings }: { pet: PetProfile | null; settings: AppSetti
   const [promptError, setPromptError] = useState("");
   const isChatPet = pet?.id === CHAT_PET_ID;
   const petStyle = {
-    "--pet-font-size": `${settings.petWindow.fontSize}px`
+    "--pet-font-size": `${settings.petWindow.fontSize}px`,
+    "--pet-prompt-width": `${promptPanelWidth}px`
   } as CSSProperties;
 
   const gifPath = pet?.gifMap[pet.state] ?? "";
@@ -81,6 +85,10 @@ function PetView({ pet, settings }: { pet: PetProfile | null; settings: AppSetti
   }, []);
 
   useEffect(() => {
+    window.localStorage.setItem("vibepet.promptPanelWidth", String(promptPanelWidth));
+  }, [promptPanelWidth]);
+
+  useEffect(() => {
     if (promptOpen) {
       promptPanelRef.current?.querySelector("input")?.focus();
     }
@@ -94,7 +102,7 @@ function PetView({ pet, settings }: { pet: PetProfile | null; settings: AppSetti
     const nameRect = nameRef.current.getBoundingClientRect();
     const captionRect = captionRef.current.getBoundingClientRect();
     const promptRect = promptPanelRef.current?.getBoundingClientRect();
-    const promptWidth = promptPanelRef.current ? Math.max(promptRect?.width ?? 0, promptPanelRef.current.scrollWidth) : 0;
+    const promptWidth = promptPanelRef.current ? Math.max(promptRect?.width ?? 0, promptPanelRef.current.scrollWidth, promptPanelWidth) : 0;
     const promptHeight = promptPanelRef.current ? Math.max(promptRect?.height ?? 0, promptPanelRef.current.scrollHeight) + 4 : 0;
     const layout = calculatePetWindowLayout({
       nameWidth: Math.max(nameRect.width, nameRef.current.scrollWidth, promptWidth),
@@ -115,7 +123,32 @@ function PetView({ pet, settings }: { pet: PetProfile | null; settings: AppSetti
           }
     );
     window.vibePet.resizePetWindow(pet.id, layout.window);
-  }, [pet, settings.petWindow.fontSize, naturalSize, promptOpen, submittingPrompt, lastAssistantMessage, promptError]);
+  }, [pet, settings.petWindow.fontSize, naturalSize, promptOpen, submittingPrompt, lastAssistantMessage, promptError, promptPanelWidth]);
+
+  useEffect(() => {
+    function handlePromptResizeMove(event: PointerEvent): void {
+      if (!resizingPromptRef.current || !resizeStartRef.current) {
+        return;
+      }
+
+      const nextWidth = clampPromptPanelWidth(resizeStartRef.current.width + event.screenX - resizeStartRef.current.x);
+      setPromptPanelWidth(nextWidth);
+    }
+
+    function handlePromptResizeEnd(): void {
+      resizingPromptRef.current = false;
+      resizeStartRef.current = null;
+    }
+
+    window.addEventListener("pointermove", handlePromptResizeMove);
+    window.addEventListener("pointerup", handlePromptResizeEnd);
+    window.addEventListener("pointercancel", handlePromptResizeEnd);
+    return () => {
+      window.removeEventListener("pointermove", handlePromptResizeMove);
+      window.removeEventListener("pointerup", handlePromptResizeEnd);
+      window.removeEventListener("pointercancel", handlePromptResizeEnd);
+    };
+  }, []);
 
   if (!pet) {
     return <div className="screen screen-pet" style={petStyle} />;
@@ -181,6 +214,16 @@ function PetView({ pet, settings }: { pet: PetProfile | null; settings: AppSetti
                 )}
               </div>
             ) : null}
+            <div
+              className="pet-prompt-resize-handle"
+              onPointerDown={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                event.currentTarget.setPointerCapture(event.pointerId);
+                resizingPromptRef.current = true;
+                resizeStartRef.current = { x: event.screenX, width: promptPanelWidth };
+              }}
+            />
           </div>
         ) : null}
       </div>
@@ -252,6 +295,19 @@ function PetView({ pet, settings }: { pet: PetProfile | null; settings: AppSetti
       console.warn(result.error ?? "Prompt submit failed");
     }
   }
+}
+
+function readStoredPromptPanelWidth(): number {
+  const value = Number(window.localStorage.getItem("vibepet.promptPanelWidth"));
+  return clampPromptPanelWidth(value);
+}
+
+function clampPromptPanelWidth(value: number): number {
+  if (!Number.isFinite(value)) {
+    return 340;
+  }
+
+  return Math.min(560, Math.max(220, Math.round(value)));
 }
 
 function FallbackPet({ state }: { state: PetState }): ReactElement {

@@ -165,7 +165,8 @@ select {
 }
 
 .pet-prompt-panel {
-  width: min(340px, calc(100vw - 16px));
+  position: relative;
+  width: min(var(--pet-prompt-width, 340px), calc(100vw - 16px));
   flex: 0 0 auto;
   display: flex;
   flex-direction: column;
@@ -174,6 +175,23 @@ select {
   user-select: text;
   -webkit-user-select: text;
   -webkit-app-region: no-drag;
+}
+
+.pet-prompt-resize-handle {
+  align-self: flex-end;
+  width: 16px;
+  height: 10px;
+  margin-top: -4px;
+  cursor: ew-resize;
+  user-select: none;
+  -webkit-user-select: none;
+  border-right: 2px solid rgba(53, 39, 28, 0.28);
+  border-bottom: 2px solid rgba(53, 39, 28, 0.28);
+  border-bottom-right-radius: 4px;
+}
+
+.pet-prompt-resize-handle:hover {
+  border-color: rgba(27, 127, 120, 0.65);
 }
 
 .pet-prompt-form {
